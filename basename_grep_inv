@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+
+# cat list_of_tags | basename_grep whatever.list
+
+# takes the basename of the last column of whatever.list and
+#  greps using a dictionary with list_of_tags
+
+
+import os
+import sys
+from collections import defaultdict
+import argparse
+
+
+# Don't throw an error when someone uses head
+from signal import signal, SIGPIPE, SIG_DFL
+signal(SIGPIPE, SIG_DFL) 
+
+parser = argparse.ArgumentParser()
+parser.add_argument("grep_file", type=str)
+# parser.add_argument("-b", action="store_true", help="Output blank line on non-match")
+# parser.add_argument("-i", action="store_true", help="Output input line on match" )
+# parser.add_argument("-1", action="store_true", help="Only allow 1 match per input.")
+# parser.add_argument("-p", action="store_true", help="Pass through input as first column of output")
+# parser.add_argument("-w", action="store_true", help="Use whole line for pass through")
+parser.add_argument("-k", type=int, default=-1, help="Which column in grep_file? 1-index. Default -1")
+parser.add_argument("-d", action="store_true", help="Don't take basename")
+# parser.add_argument("-f", type=int, default=-1, help="Which column in std-in? 1-index. Default -1. Only applies if -w passed.")
+args = parser.parse_args(sys.argv[1:])
+
+grep_file = args.grep_file
+
+if ( args.k > 0 ):
+    args.k -= 1
+
+d = defaultdict(lambda : [[], False])
+with open(grep_file) as f:
+    for line in f:
+        line = line.strip()
+        if (len(line) == 0):
+            continue
+        if ( not args.d ):
+            base = os.path.basename(line.split()[args.k])
+        else:
+            base = line.split()[args.k]
+        d[base][0].append(line)
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+tags = []
+for line in sys.stdin.readlines():
+    line = line.strip()
+    if (len(line) == 0):
+        continue
+    sp = line.split()
+    for tag in sp:
+        used = False
+        if ( tag in d ):
+            used = True
+            d[tag][1] = True
+        if ( not used ):
+            eprint("basename_grep_inv: no match for " + tag)
+
+for tag in d:
+    lines, used = d[tag]
+    if ( not used ):
+        for line in lines:
+            print(line)
+
+
+

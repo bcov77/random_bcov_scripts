@@ -1,0 +1,125 @@
+#!/usr/bin/env python
+
+# cat list_of_tags | basename_grep whatever.list
+
+# takes the basename of the last column of whatever.list and
+#  greps using a dictionary with list_of_tags
+
+
+import os
+import sys
+from collections import defaultdict
+import argparse
+import re
+
+# Don't throw an error when someone uses head
+from signal import signal, SIGPIPE, SIG_DFL
+signal(SIGPIPE, SIG_DFL) 
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("grep_file", type=str)
+parser.add_argument("-b", action="store_true", help="Output blank line on non-match")
+parser.add_argument("-i", action="store_true", help="Output input line on match" )
+parser.add_argument("-1", action="store_true", help="Only allow 1 match per input.")
+parser.add_argument("-p", action="store_true", help="Pass through input as first column of output")
+parser.add_argument("-P", action="store_true", help="Like -p, but discard final column of input")
+parser.add_argument("-w", action="store_true", help="Use whole line for pass through")
+parser.add_argument("-k", type=int, default=-1, help="Which column in grep_file? 1-index. Default -1")
+parser.add_argument("-f", type=int, default=-1, help="Which column in std-in? 1-index. Default -1. Only applies if -w passed.")
+parser.add_argument("-n", action="store_true", help="Output a newline after every set of matches.")
+parser.add_argument("-d", action="store_true", help="Don't take basename")
+parser.add_argument("-a", action="store_true", help="Output input line anyways even if no match (often used with -p)")
+args = parser.parse_args(sys.argv[1:])
+
+grep_file = args.grep_file
+
+if ( args.k > 0 ):
+    args.k -= 1
+
+if ( args.f > 0 ):
+    args.f -= 1
+
+d = defaultdict(lambda : [])
+with open(grep_file) as f:
+    for line in f:
+        line = line.strip()
+        if (len(line) == 0):
+            continue
+        if ( not args.d ):
+            base = os.path.basename(line.split()[args.k])
+        else:
+            base = line.split()[args.k]
+        d[base].append(line)
+
+
+
+re_split_keep_all = re.compile("(\s+|\S+)")
+
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+tags = []
+for line in sys.stdin.readlines():
+    line = line.rstrip("\n\r")
+    if (len(line.strip()) == 0):
+        continue
+    if ( args.w ):
+        tag_whole = [(line.split()[args.f], line)]
+    else:
+        tag_whole = [(x, x) for x in line.split()]
+    for tag, whole in tag_whole:
+
+        which_delim = " "
+        if ( whole.count("\t") > whole.count(" ") ):
+            which_delim = "\t"
+
+        empty = ""
+        if ( args.p ):
+            empty = whole + which_delim
+        if ( args.P ):
+            weird_split = re_split_keep_all.findall(whole)
+
+            if ( args.f >= 0 ):
+                P_idx = args.f * 2
+                if ( "\t" in weird_split[0] or " " in weird_split[0] ):
+                    P_idx += 1
+            else:
+                P_idx = len(weird_split) + args.f * 2 + 1
+                if ( "\t" in weird_split[-1] or " " in weird_split[-1] ):
+                    P_idx -= 1
+
+            # We're splitting the string in two different ways. Make sure we get the same result
+            assert(weird_split[P_idx] == tag)
+
+            if ( P_idx > 0 ):
+                # Kill leading separator
+                whole = "".join(weird_split[:P_idx-1] + weird_split[P_idx+1:])
+            else:
+                # Kill trailing separator if there is no leading
+                whole = "".join(weird_split[:P_idx] + weird_split[P_idx+2:])
+
+            empty = whole + which_delim
+        if ( tag in d ):
+            to_output = d[tag]
+            if ( args.__getattribute__("1") ):
+                to_output = to_output[:1]
+            if ( args.i ):
+                to_output = [line]
+            for string in to_output:
+                print(empty + string)
+            if ( args.n ):
+                print("")
+        else:
+            if ( args.b ):
+                print(empty)
+            else:
+                if ( args.a ):
+                    print(empty)
+                else:
+                    eprint("basename_grep: no match for " + tag)
+
+
+
