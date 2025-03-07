@@ -4,6 +4,10 @@
 # In[4]:
 
 
+#An example setup command from jhr_extract_interfaces3.py
+#for j in $(pwd)/looping1_motifs/*.pdb; do contig=$(grep PDBinfo $j | tr ' ' '\n' | grep JHR_CONTIG | sed 's/.*://g' | tr '_' ' '); twod=$(grep PDBinfo $j | tr ' ' '\n' | grep TWOD_STRING | sed 's/.*://g'); echo "cd $(readlink -f looping1_scaffolds);  NUMBA_CACHE_DIR=/scratch/bcov_numba_cache apptainer exec -B /mnt/home/bcov -B /mnt/net/scratch /software/containers/users/bcov/bcov_base_22-01-11.sif /opt/conda/envs/env/bin/python /mnt/home/bcov/sc/design/tie2/attempt3/notebooks/bundle_builder_w_sheet.py -contig=\"$contig\" -interface_output=\"$twod\" -pdb_name $j -num_to_output 35 -max_considered_helices 7 -min_considered_helices 3"; done > commands_sheet.list
+
+
 import os
 import sys
 import json
