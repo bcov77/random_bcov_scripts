@@ -1066,7 +1066,9 @@ for bc in cool_sorts:
     enrich_to_plot = enrich[m]
 
     to_plot = to_plot.sort_values("kd_ub", ascending=False)
+    enrich_to_plot = enrich_to_plot.loc[to_plot.index]
     max_at = np.maximum.accumulate(enrich_to_plot)
+
     mask = to_plot['kd_ub'] < conc*10
     df.loc[to_plot[mask].index, 'sketch_kd_level'] = np.minimum(to_plot[mask]['sketch_kd_level'], enrich_to_plot[mask]/max_at[mask])
     df.loc[df['sketch_kd_level'] < args.sketch_kd_threshold, 'sketch_kd'] = True
